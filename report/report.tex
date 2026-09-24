@@ -1,0 +1,123 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10}
+}
+
+\title{Cryptography and Network Security \\ \large Integrated Situation --- Technical Report}
+\author{Josue Baraka Rudahalingoma \\ ULK Polytechnic Institute}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+This report documents the security assessment and technical work carried
+out for the ETTCS801 Integrated Situation. The scenario involves a
+polytechnic institute storing student records on a central server and
+transferring files between two campuses, with weak staff passwords,
+outdated software, unencrypted transfers, and guest network access to
+the records server identified as issues in a security review.
+
+\section{Risk Assessment}
+% a. Assets, vulnerabilities, consequences
+% b. Risk ranking with reasoning
+% c. Recommended controls
+% See risk_assessment.md for the full table -- reproduce/summarise it here.
+
+\subsection{Assets, Vulnerabilities and Consequences}
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+Asset & Vulnerability & Consequence \\
+\midrule
+Records server & Guest network access & Unauthorised access/tampering \\
+Staff credentials & Weak passwords & Account compromise \\
+File transfer channel & Unencrypted transfer & Interception in transit \\
+\bottomrule
+\end{tabular}
+\caption{Assets, vulnerabilities and consequences}
+\end{table}
+
+\subsection{Risk Ranking}
+% Insert your likelihood/impact table and reasoning here.
+
+\subsection{Recommended Controls}
+% Insert your controls table here.
+
+\section{Encryption and Integrity Toolkit}
+The \texttt{crypto\_toolkit.py} programme was developed to encrypt and
+decrypt student records and to verify their integrity.
+
+\subsection{Design}
+\begin{itemize}
+  \item \textbf{Encryption:} symmetric encryption using \texttt{Fernet}
+    (AES-128 in CBC mode with HMAC authentication) from the Python
+    \texttt{cryptography} library.
+  \item \textbf{Integrity:} SHA-256 hashing via \texttt{hashlib}, with
+    the hash saved alongside the file and re-checked on demand.
+  \item \textbf{Robustness:} all file operations are wrapped in
+    \texttt{try/except} blocks so missing files or invalid input do not
+    crash the programme.
+\end{itemize}
+
+\subsection{Test Evidence}
+% Paste terminal output / screenshots here showing:
+%  - successful encryption
+%  - successful decryption matching the original
+%  - hash computed
+%  - integrity check passing on an unmodified file
+%  - integrity check failing after the file is modified
+\begin{lstlisting}
+$ python3 crypto_toolkit.py genkey
+[OK] Key generated and saved to secret.key
+...
+\end{lstlisting}
+
+\section{Network Traffic Filtering}
+Firewall rules were applied in the authorised laboratory environment
+using \texttt{iptables} (see \texttt{firewall\_rules.sh}).
+
+\subsection{Rules Summary}
+\begin{itemize}
+  \item Block guest subnet $\rightarrow$ records-server port
+  \item Allow staff subnet $\rightarrow$ records-server port
+  \item Drop all other inbound traffic to that port
+\end{itemize}
+
+\subsection{Test Procedure and Results}
+% Reproduce the table from filter_tests.md here.
+\begin{table}[h]
+\centering
+\begin{tabular}{llll}
+\toprule
+Test & Source & Expected & Result \\
+\midrule
+1 & Staff subnet & Allowed & \\
+2 & Guest subnet & Blocked & \\
+3 & External/unauthorised & Blocked & \\
+\bottomrule
+\end{tabular}
+\caption{Firewall test results}
+\end{table}
+
+\section{Conclusion}
+% Summarise findings and the security posture achieved.
+The measures implemented -- network segmentation via firewall rules,
+authenticated symmetric encryption, and SHA-256 integrity verification
+-- address the vulnerabilities identified in the risk assessment.
+
+\vspace{1em}
+\noindent\textbf{GitHub repository:} \url{https://github.com/<your-username>/cryptography-network-security-exam}
+
+\end{document}

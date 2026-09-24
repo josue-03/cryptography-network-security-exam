@@ -1,0 +1,11 @@
+secret.key
+*.key
+sample_record.txt
+sample_record.enc
+sample_record.dec
+*.sha256
+__pycache__/
+*.pyc
+report/*.aux
+report/*.log
+report/*.out
