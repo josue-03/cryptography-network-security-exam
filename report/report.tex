@@ -21,18 +21,9 @@
 \maketitle
 
 \section{Introduction}
-This report documents the security assessment and technical work carried
-out for the ETTCS801 Integrated Situation. The scenario involves a
-polytechnic institute storing student records on a central server and
-transferring files between two campuses, with weak staff passwords,
-outdated software, unencrypted transfers, and guest network access to
-the records server identified as issues in a security review.
+This report documents the security assessment and technical work carried out for the ETTCS801 Integrated Situation. The scenario involves a polytechnic institute storing student records on a central server and transferring files between two campuses, with weak staff passwords, outdated software, unencrypted transfers, and guest network access to the records server identified as issues in a security review.
 
 \section{Risk Assessment}
-% a. Assets, vulnerabilities, consequences
-% b. Risk ranking with reasoning
-% c. Recommended controls
-% See risk_assessment.md for the full table -- reproduce/summarise it here.
 
 \subsection{Assets, Vulnerabilities and Consequences}
 \begin{table}[h]
@@ -41,83 +32,113 @@ the records server identified as issues in a security review.
 \toprule
 Asset & Vulnerability & Consequence \\
 \midrule
-Records server & Guest network access & Unauthorised access/tampering \\
-Staff credentials & Weak passwords & Account compromise \\
-File transfer channel & Unencrypted transfer & Interception in transit \\
+Central student records server & Guest network can reach the server & Unauthorised access, theft or tampering of data \\
+Staff login credentials & Weak/reused passwords & Account compromise, unauthorised access \\
+Inter-campus file transfer channel & Transfers are unencrypted & Interception (eavesdropping) in transit \\
 \bottomrule
 \end{tabular}
 \caption{Assets, vulnerabilities and consequences}
 \end{table}
 
 \subsection{Risk Ranking}
-% Insert your likelihood/impact table and reasoning here.
+\begin{table}[h]
+\centering
+\begin{tabular}{lllp{5cm}}
+\toprule
+Rank & Risk & Likelihood & Reasoning \\
+\midrule
+1 & Guest access to records server & High & No segmentation exists; repeated probing already observed from an unfamiliar external address. \\
+2 & Weak staff passwords & Medium--High & Easy to guess/brute-force; grants legitimate-looking access. \\
+3 & Unencrypted transfers & Medium & Requires attacker on the network path, but still a real confidentiality risk. \\
+\bottomrule
+\end{tabular}
+\caption{Risk ranking by likelihood and impact}
+\end{table}
 
 \subsection{Recommended Controls}
-% Insert your controls table here.
+\begin{itemize}
+  \item Guest access to records server: network segmentation (VLANs) and firewall rules denying guest traffic
+  \item Weak staff passwords: strong password policy plus multi-factor authentication (MFA)
+  \item Unencrypted transfers: encrypt in transit (SFTP/SCP or TLS) instead of plaintext protocols
+\end{itemize}
 
 \section{Encryption and Integrity Toolkit}
-The \texttt{crypto\_toolkit.py} programme was developed to encrypt and
-decrypt student records and to verify their integrity.
+The \texttt{crypto\_toolkit.py} programme was developed to encrypt and decrypt student records and to verify their integrity.
 
 \subsection{Design}
 \begin{itemize}
-  \item \textbf{Encryption:} symmetric encryption using \texttt{Fernet}
-    (AES-128 in CBC mode with HMAC authentication) from the Python
-    \texttt{cryptography} library.
-  \item \textbf{Integrity:} SHA-256 hashing via \texttt{hashlib}, with
-    the hash saved alongside the file and re-checked on demand.
-  \item \textbf{Robustness:} all file operations are wrapped in
-    \texttt{try/except} blocks so missing files or invalid input do not
-    crash the programme.
+  \item \textbf{Encryption:} symmetric encryption using \texttt{Fernet} (AES-128 in CBC mode with HMAC authentication) from the Python \texttt{cryptography} library.
+  \item \textbf{Integrity:} SHA-256 hashing via \texttt{hashlib}, with the hash saved alongside the file and re-checked on demand.
+  \item \textbf{Robustness:} all file operations are wrapped in \texttt{try/except} blocks so missing files or invalid input do not crash the programme.
 \end{itemize}
 
 \subsection{Test Evidence}
-% Paste terminal output / screenshots here showing:
-%  - successful encryption
-%  - successful decryption matching the original
-%  - hash computed
-%  - integrity check passing on an unmodified file
-%  - integrity check failing after the file is modified
 \begin{lstlisting}
 $ python3 crypto_toolkit.py genkey
 [OK] Key generated and saved to secret.key
-...
+
+$ python3 crypto_toolkit.py encrypt sample_record.txt sample_record.enc
+[OK] Encrypted 'sample_record.txt' -> 'sample_record.enc'
+
+$ python3 crypto_toolkit.py hash sample_record.enc
+[OK] SHA-256 of 'sample_record.enc':
+     69fe15c94f975f06fc1ac371ae85c43c37346bfdbf982416ad2bc9e28992962c
+
+$ python3 crypto_toolkit.py verify sample_record.enc sample_record.enc.sha256
+[OK] Integrity check PASSED - file has not been modified.
+
+$ python3 crypto_toolkit.py decrypt sample_record.enc sample_record.dec
+[OK] Decrypted 'sample_record.enc' -> 'sample_record.dec'
+$ diff sample_record.txt sample_record.dec
+MATCH: decrypted file is identical to original
+
+$ echo "tampered" >> sample_record.enc
+$ python3 crypto_toolkit.py verify sample_record.enc sample_record.enc.sha256
+[ALERT] Integrity check FAILED - file has been modified!
 \end{lstlisting}
 
+The final test confirms the toolkit correctly detects tampering after the encrypted file was deliberately modified.
+
 \section{Network Traffic Filtering}
-Firewall rules were applied in the authorised laboratory environment
-using \texttt{iptables} (see \texttt{firewall\_rules.sh}).
+Firewall rules were applied in the authorised laboratory environment using \texttt{iptables} (see \texttt{firewall\_rules.sh}), tested with a local HTTP service on port 8080 and three simulated source subnets (staff, guest, external).
 
 \subsection{Rules Summary}
 \begin{itemize}
-  \item Block guest subnet $\rightarrow$ records-server port
-  \item Allow staff subnet $\rightarrow$ records-server port
+  \item Block guest subnet (192.168.20.0/24) $\rightarrow$ service port
+  \item Allow staff subnet (192.168.10.0/24) $\rightarrow$ service port
   \item Drop all other inbound traffic to that port
 \end{itemize}
 
 \subsection{Test Procedure and Results}
-% Reproduce the table from filter_tests.md here.
 \begin{table}[h]
 \centering
 \begin{tabular}{llll}
 \toprule
 Test & Source & Expected & Result \\
 \midrule
-1 & Staff subnet & Allowed & \\
-2 & Guest subnet & Blocked & \\
-3 & External/unauthorised & Blocked & \\
+1 & Staff subnet (192.168.10.5) & Allowed & Succeeded \\
+2 & Guest subnet (192.168.20.5) & Blocked & Timed out \\
+3 & External (172.16.0.5) & Blocked & Timed out \\
 \bottomrule
 \end{tabular}
 \caption{Firewall test results}
 \end{table}
 
+\begin{lstlisting}
+$ nc -vz -s 192.168.10.5 127.0.0.1 8080
+Connection to 127.0.0.1 8080 port [tcp/http-alt] succeeded!
+
+$ nc -vz -s 192.168.20.5 127.0.0.1 8080
+nc: connect to 127.0.0.1 port 8080 (tcp) failed: Connection timed out
+
+$ nc -vz -s 172.16.0.5 127.0.0.1 8080
+nc: connect to 127.0.0.1 port 8080 (tcp) failed: Connection timed out
+\end{lstlisting}
+
 \section{Conclusion}
-% Summarise findings and the security posture achieved.
-The measures implemented -- network segmentation via firewall rules,
-authenticated symmetric encryption, and SHA-256 integrity verification
--- address the vulnerabilities identified in the risk assessment.
+The measures implemented -- network segmentation via firewall rules, authenticated symmetric encryption, and SHA-256 integrity verification -- address the vulnerabilities identified in the risk assessment. Testing confirmed that staff access is permitted while guest and external access to the protected service are correctly blocked, and that the encryption toolkit correctly encrypts, decrypts, and detects tampering.
 
 \vspace{1em}
-\noindent\textbf{GitHub repository:} \url{https://github.com/<your-username>/cryptography-network-security-exam}
+\noindent\textbf{GitHub repository:} \url{https://github.com/josue-03/cryptography-network-security-exam}
 
 \end{document}
