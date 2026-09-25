@@ -8,8 +8,8 @@
 #
 # >>> Edit the variables below to match the values your assessor gave you <<<
 
-IFACE="eth0"                 # network interface facing the LAN
-SERVICE_PORT="443"           # the service specified by the assessor (e.g. 443 for HTTPS)
+IFACE="lo"                 # network interface facing the LAN
+SERVICE_PORT="8080"           # the service specified by the assessor (e.g. 443 for HTTPS)
 STAFF_NET="192.168.10.0/24"  # authorised staff subnet  -- EDIT ME
 GUEST_NET="192.168.20.0/24"  # guest subnet             -- EDIT ME
 
@@ -24,7 +24,7 @@ iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-iptables -A INPUT -i lo -j ACCEPT
+#iptables -A INPUT -i lo -j ACCEPT
 
 echo "[*] (a) Block guest network access to the records server explicitly..."
 iptables -A INPUT -i "$IFACE" -s "$GUEST_NET" -p tcp --dport "$SERVICE_PORT" -j DROP
